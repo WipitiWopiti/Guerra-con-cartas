@@ -1,11 +1,330 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>¡GUERRA!</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Guerra — Baraja Española (Juego para desplegar)</title>
+  <style>
+    :root{--bg:#0f172a;--card:#fff;--muted:#94a3b8;--accent:#f59e0b}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071231 0%, #091428 60%);color:#e6eef8;display:flex;align-items:center;justify-content:center;padding:24px}
+    .app{width:100%;max-width:980px;background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent);border-radius:12px;padding:20px;box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:20px;margin:0;color:var(--accent)}
+    small{color:var(--muted)}
+
+    .board{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .player{background:rgba(255,255,255,0.02);padding:14px;border-radius:10px;min-height:220px}
+    .player h2{margin:0 0 8px 0;font-size:15px}
+    .zone{display:flex;gap:12px;align-items:center}
+
+    .stack{width:120px;height:160px;border-radius:8px;background:linear-gradient(180deg,#123 0%, #0b2340 100%);display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--muted);position:relative}
+    .stack span{font-size:12px}
+    .card{width:120px;height:160px;border-radius:8px;background:var(--card);color:#111;display:flex;flex-direction:column;padding:8px;justify-content:space-between;box-shadow:0 8px 18px rgba(2,6,23,0.5);}
+    .card .top,.card .bottom{font-weight:700}
+    .card .suit{font-size:28px;text-align:center}
+    .small-muted{font-size:12px;color:var(--muted)}
+
+    .controls{margin-top:16px;display:flex;gap:10px;align-items:center}
+    button{background:var(--accent);border:none;padding:10px 14px;border-radius:8px;color:#071022;font-weight:700;cursor:pointer}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600}
+    .log{margin-top:12px;background:rgba(255,255,255,0.02);padding:10px;border-radius:8px;height:84px;overflow:auto;font-size:13px}
+    .status{display:flex;gap:8px;align-items:center}
+
+    .center-area{display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .pile{display:flex;gap:6px;align-items:center}
+    .pile .mini{width:64px;height:90px;border-radius:6px;background:linear-gradient(180deg,#d6c 0%, #fff0 100%);display:flex;align-items:center;justify-content:center;color:#000;font-weight:700}
+
+    footer{margin-top:16px;display:flex;justify-content:space-between;align-items:center}
+
+    .settings{display:flex;gap:8px;align-items:center}
+    label{font-size:13px;color:var(--muted)}
+    input[type=range]{width:120px}
+
+    /* small screens */
+    @media (max-width:780px){.board{grid-template-columns:1fr;}.stack{width:90px;height:130px}.card{width:90px;height:130px}.pile .mini{width:48px;height:70px}}
+  </style>
 </head>
 <body>
-    
+  <div class="app" role="application">
+    <header>
+      <div>
+        <h1>Guerra — Baraja Española</h1>
+        <small>Reglas clásicas: empate = guerra. (Baraja 40 cartas: 1–7, Sota(10), Caballo(11), Rey(12))</small>
+      </div>
+      <div class="status">
+        <div class="small-muted">Rondas: <strong id="roundCount">0</strong></div>
+        <div class="small-muted">Cartas mesa: <strong id="pileCount">0</strong></div>
+      </div>
+    </header>
+
+    <main class="board">
+      <section class="player" id="playerTop">
+        <h2>Jugador 1</h2>
+        <div class="zone">
+          <div class="stack" id="deck1"><span id="count1">0</span><span class="small-muted">en el mazo</span></div>
+          <div class="center-area">
+            <div id="card1" class="card" aria-live="polite"><div class="top"></div><div class="suit"></div><div class="bottom"></div></div>
+            <div class="small-muted">Última jugada</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="player" id="playerBottom">
+        <h2>Jugador 2 (CPU)</h2>
+        <div class="zone">
+          <div class="center-area">
+            <div id="card2" class="card"><div class="top"></div><div class="suit"></div><div class="bottom"></div></div>
+            <div class="small-muted">Última jugada</div>
+          </div>
+          <div class="stack" id="deck2"><span id="count2">0</span><span class="small-muted">en el mazo</span></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="center-area" style="margin-top:12px">
+      <div class="pile">
+        <div class="stack" id="tablePile"><span id="countPile">0</span><span class="small-muted">en mesa</span></div>
+        <div style="margin-left:12px; text-align:center">
+          <div class="small-muted">Ganador ronda:</div>
+          <div id="roundWinner" style="font-weight:800;margin-top:6px">—</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="playBtn">Jugar ronda</button>
+        <button id="autoBtn" class="secondary">Auto: OFF</button>
+        <button id="resetBtn" class="secondary">Reiniciar</button>
+        <div class="settings">
+          <label for="speed">Velocidad</label>
+          <input id="speed" type="range" min="200" max="1500" step="100" value="700">
+        </div>
+      </div>
+    </div>
+
+    <div class="log" id="log"></div>
+
+    <footer>
+      <small class="small-muted">Archivo listo para desplegar: guarda como <code>guerra_baraja_espanola.html</code> y ábrelo en el navegador.</small>
+      <div class="small-muted">Hecho con ❤️ — puedes modificar los estilos y reglas.</div>
+    </footer>
+  </div>
+
+  <script>
+    // Baraja española de 40 cartas: palos y valores.
+    const SUITS = ['oros','copas','espadas','bastos'];
+    const RANKS = [1,2,3,4,5,6,7,10,11,12]; // 10=Sota,11=Caballo,12=Rey
+
+    // DOM
+    const playBtn = document.getElementById('playBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const autoBtn = document.getElementById('autoBtn');
+    const speedInput = document.getElementById('speed');
+    const logEl = document.getElementById('log');
+    const card1El = document.getElementById('card1');
+    const card2El = document.getElementById('card2');
+    const count1El = document.getElementById('count1');
+    const count2El = document.getElementById('count2');
+    const countPileEl = document.getElementById('countPile');
+    const roundWinnerEl = document.getElementById('roundWinner');
+    const roundCountEl = document.getElementById('roundCount');
+
+    let deck1 = [], deck2 = [];
+    let pile = []; // cartas en disputa
+    let roundCount = 0;
+    let auto = false;
+    let autoplayTimer = null;
+
+    // Construir y barajar la baraja
+    function buildDeck(){
+      const d = [];
+      for(const s of SUITS) for(const r of RANKS) d.push({suit:s,rank:r,id:`${s}_${r}_${Math.random().toString(36).slice(2,8)}`});
+      return shuffle(d);
+    }
+
+    function shuffle(array){
+      for(let i=array.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [array[i],array[j]] = [array[j],array[i]];
+      }
+      return array;
+    }
+
+    function deal(){
+      const full = buildDeck();
+      deck1 = full.slice(0,20);
+      deck2 = full.slice(20);
+      pile = [];
+      roundCount = 0;
+      updateUI();
+      log('Baraja mezclada. ¡A jugar!');
+    }
+
+    function cardToHTML(card){
+      if(!card) return '<div class="top"></div><div class="suit"></div><div class="bottom"></div>';
+      const suitIcon = {
+        oros: '♦', copas: '♥', espadas: '♠', bastos: '♣'
+      }[card.suit] || '?';
+      const name = (card.rank===10? 'Sota': card.rank===11? 'Caballo': card.rank===12? 'Rey': card.rank);
+      return `
+        <div class="top">${name}</div>
+        <div class="suit">${suitIcon}</div>
+        <div class="bottom">${name}</div>
+      `;
+    }
+
+    function updateUI(){
+      count1El.textContent = deck1.length;
+      count2El.textContent = deck2.length;
+      countPileEl.textContent = pile.length;
+      roundCountEl.textContent = roundCount;
+    }
+
+    function log(text){
+      const p = document.createElement('div'); p.textContent = text; logEl.prepend(p);
+    }
+
+    // valor para comparación: usar el número; en algunas variantes el as puede ser más alto, aquí 1 es bajo.
+    function valueOf(card){ return card.rank; }
+
+    // Jugar una ronda (incluye resolver guerra si hay empate)
+    async function playRound(){
+      if(deck1.length===0 || deck2.length===0){
+        checkGameEnd();
+        return;
+      }
+      roundCount++;
+      updateUI();
+
+      // cada jugador saca la de arriba
+      const c1 = deck1.shift();
+      const c2 = deck2.shift();
+      pile.push(c1,c2);
+      card1El.innerHTML = cardToHTML(c1);
+      card2El.innerHTML = cardToHTML(c2);
+      log(`Jugador 1 juega ${displayCard(c1)} — Jugador 2 juega ${displayCard(c2)}`);
+
+      await pause();
+
+      await resolveBattle(c1,c2);
+      updateUI();
+      checkGameEnd();
+    }
+
+    async function resolveBattle(c1,c2){
+      const v1 = valueOf(c1), v2 = valueOf(c2);
+      if(v1>v2){
+        await winnerTakes('Jugador 1');
+      } else if(v2>v1){
+        await winnerTakes('Jugador 2');
+      } else {
+        // Guerra: cada uno coloca una carta boca abajo (si puede) y otra boca arriba
+        log('¡Empate! Se declara GUERRA.');
+        // colocar una boca abajo (si tienen)
+        const down1 = deck1.length? deck1.shift() : null;
+        const down2 = deck2.length? deck2.shift() : null;
+        if(down1) pile.push(down1);
+        if(down2) pile.push(down2);
+        log(`Cada jugador coloca una carta boca abajo${down1? ' (Jugador1 ok)':''}${down2? ' (Jugador2 ok)':''}`);
+        await pause();
+        // luego otra cara arriba (si pueden)
+        const up1 = deck1.length? deck1.shift() : null;
+        const up2 = deck2.length? deck2.shift() : null;
+        if(up1) pile.push(up1);
+        if(up2) pile.push(up2);
+        card1El.innerHTML = cardToHTML(up1);
+        card2El.innerHTML = cardToHTML(up2);
+        log(`En guerra: Jugador1 muestra ${up1? displayCard(up1): '—'} — Jugador2 muestra ${up2? displayCard(up2): '—'}`);
+        await pause();
+
+        // Si alguno no puede mostrar carta, el que sí tenga cartas gana; si ambos no, reparto de pila aleatorio
+        if(!up1 && !up2){
+          log('Ninguno pudo completar la guerra: la pila se divide aleatoriamente.');
+          distributePileRandom();
+          return;
+        }
+        if(!up1){
+          await winnerTakes('Jugador 2'); return;
+        }
+        if(!up2){
+          await winnerTakes('Jugador 1'); return;
+        }
+        // resolver recursivamente en caso de nuevo empate
+        await resolveBattle(up1, up2);
+      }
+    }
+
+    async function winnerTakes(winner){
+      roundWinnerEl.textContent = winner;
+      log(`${winner} gana la ronda y recoge ${pile.length} cartas.`);
+      // el ganador añade las cartas al fondo de su mazo (en orden mezclado para evitar loops largos)
+      const taken = shuffle(pile.slice());
+      if(winner==='Jugador 1') deck1.push(...taken);
+      else deck2.push(...taken);
+      pile = [];
+      await pause(250);
+      roundWinnerEl.textContent = '—';
+    }
+
+    function distributePileRandom(){
+      const shuffled = shuffle(pile.slice());
+      for(let i=0;i<shuffled.length;i++){
+        if(i%2===0) deck1.push(shuffled[i]); else deck2.push(shuffled[i]);
+      }
+      pile = [];
+      updateUI();
+    }
+
+    function displayCard(c){
+      if(!c) return '—';
+      const name = (c.rank===10? 'Sota': c.rank===11? 'Caballo': c.rank===12? 'Rey': c.rank);
+      return `${name} de ${c.suit}`;
+    }
+
+    function checkGameEnd(){
+      if(deck1.length===0){
+        log('¡Jugador 2 (CPU) gana el juego!');
+        stopAuto();
+      } else if(deck2.length===0){
+        log('¡Jugador 1 gana el juego!');
+        stopAuto();
+      }
+      updateUI();
+    }
+
+    function pause(ms){
+      const delay = ms ?? parseInt(speedInput.value,10);
+      return new Promise(res=>setTimeout(res, delay));
+    }
+
+    // Autoplay
+    function toggleAuto(){
+      auto = !auto; autoBtn.textContent = `Auto: ${auto? 'ON':'OFF'}`;
+      if(auto){ runAuto(); } else { stopAuto(); }
+    }
+    async function runAuto(){
+      if(autoplayTimer) return;
+      autoplayTimer = setInterval(async ()=>{
+        if(!auto) return stopAuto();
+        // Si juego está acabado
+        if(deck1.length===0 || deck2.length===0) return stopAuto();
+        // jugar una ronda
+        // IMPORTANT: avoid overlapping calls — ensure previous finished
+        playRound();
+      }, Math.max(200, parseInt(speedInput.value,10)+50));
+    }
+    function stopAuto(){
+      auto = false; autoBtn.textContent = 'Auto: OFF';
+      if(autoplayTimer){ clearInterval(autoplayTimer); autoplayTimer=null; }
+    }
+
+    // Eventos
+    playBtn.addEventListener('click', ()=>{ playRound(); });
+    resetBtn.addEventListener('click', ()=>{ deal(); });
+    autoBtn.addEventListener('click', ()=>{ toggleAuto(); });
+
+    // inicializar
+    deal();
+  </script>
 </body>
 </html>
